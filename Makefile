@@ -1,4 +1,4 @@
-.PHONY: up down init lint test demo-ingest demo-backfill
+.PHONY: up down init lint test demo-ingest demo-backfill dbt-docs ge-docs
 
 up:
 	docker compose up -d
@@ -33,6 +33,24 @@ test:
 demo-ingest:
 	docker compose exec airflow-webserver airflow dags trigger yellow_taxi_monthly_ingest \
 		--conf '{"year": 2023, "month": 1}'
+	@echo "DAG triggered. Monitor at http://localhost:8082"
 
+# Load Jan and Jul for 2018, 2019, 2021, 2024 — spans all schema-evolution boundaries.
 demo-backfill:
-	@echo "Backfill DAG available in Milestone 4"
+	docker compose exec airflow-webserver airflow dags trigger backfill_yellow_taxi \
+		--conf '{"start_month": "2018-01", "end_month": "2018-07"}'
+	docker compose exec airflow-webserver airflow dags trigger backfill_yellow_taxi \
+		--conf '{"start_month": "2019-01", "end_month": "2019-07"}'
+	docker compose exec airflow-webserver airflow dags trigger backfill_yellow_taxi \
+		--conf '{"start_month": "2021-01", "end_month": "2021-07"}'
+	docker compose exec airflow-webserver airflow dags trigger backfill_yellow_taxi \
+		--conf '{"start_month": "2024-01", "end_month": "2024-07"}'
+	@echo "Backfill triggered for 2018/2019/2021/2024. Monitor at http://localhost:8082"
+
+dbt-docs:
+	cd dbt && .venv/bin/dbt docs generate --profiles-dir . && .venv/bin/dbt docs serve --profiles-dir .
+	@echo "dbt docs at http://localhost:8080"
+
+ge-docs:
+	@open great_expectations/uncommitted/data_docs/local_site/index.html 2>/dev/null || \
+		xdg-open great_expectations/uncommitted/data_docs/local_site/index.html

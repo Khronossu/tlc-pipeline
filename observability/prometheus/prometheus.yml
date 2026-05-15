@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Pushgateway — batch pipeline metrics pushed by write_audit.py
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
+
+  # MinIO cluster metrics
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+    static_configs:
+      - targets: ["minio:9000"]
+
+  # Spark master web UI (JMX metrics via Spark Prometheus endpoint)
+  - job_name: spark
+    static_configs:
+      - targets: ["spark-master:8080"]
+    metrics_path: /metrics/master/prometheus

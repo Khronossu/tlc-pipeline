@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from airflow.decorators import dag, task
 from airflow.models.param import Param
-from airflow.operators.python import PythonOperator
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 
 SPARK_CONN_ID = "spark_default"
@@ -28,7 +26,7 @@ def _on_failure(context: dict) -> None:  # type: ignore[type-arg]
     run_id = context["run_id"]
     dag_id = context["dag"].dag_id
     task_id = context["task"].task_id
-    now = datetime.now(tz=timezone.utc).isoformat()
+    now = datetime.now(tz=UTC).isoformat()
 
     record = {
         "run_id": run_id,
@@ -92,7 +90,8 @@ def yellow_taxi_monthly_ingest() -> None:
             "--month", month,
             "--run-id", run_id,
             "--source-url", source_url,
-            "--source-sha256", "{{ ti.xcom_pull(task_ids='download_to_landing', key='sha256') or '' }}",
+            "--source-sha256",
+            "{{ ti.xcom_pull(task_ids='download_to_landing', key='sha256') or '' }}",
         ],
         on_failure_callback=_on_failure,
     )
@@ -100,11 +99,12 @@ def yellow_taxi_monthly_ingest() -> None:
     @task(on_failure_callback=_on_failure)
     def write_audit_success(**context: object) -> None:
         import subprocess
-        from datetime import datetime, timezone
+        from datetime import UTC, datetime
 
         ti = context["ti"]  # type: ignore[index]
-        started = ti.start_date.isoformat() if ti.start_date else datetime.now(tz=timezone.utc).isoformat()
-        finished = datetime.now(tz=timezone.utc).isoformat()
+        now_iso = datetime.now(tz=UTC).isoformat()
+        started = ti.start_date.isoformat() if ti.start_date else now_iso
+        finished = datetime.now(tz=UTC).isoformat()
         started_dt = datetime.fromisoformat(started)
         finished_dt = datetime.fromisoformat(finished)
         duration = (finished_dt - started_dt).total_seconds()
@@ -115,7 +115,11 @@ def yellow_taxi_monthly_ingest() -> None:
             "task_id": "write_audit_success",
             "layer": "bronze",
             "table_name": "bronze.yellow_trips",
-            "source_url": str(context["params"].get("year", "")) + "-" + str(context["params"].get("month", "")),
+            "source_url": (
+                str(context["params"].get("year", ""))  # type: ignore[index]
+                + "-"
+                + str(context["params"].get("month", ""))  # type: ignore[index]
+            ),
             "status": "SUCCESS",
             "started_at": started,
             "finished_at": finished,

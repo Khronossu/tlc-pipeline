@@ -1,0 +1,38 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Env
+.env
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# Great Expectations
+great_expectations/uncommitted/
+
+# Airflow
+airflow/logs/
+airflow/plugins/__pycache__/
+
+# Docker / MinIO data
+minio_data/
+
+# Spark
+spark/logs/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

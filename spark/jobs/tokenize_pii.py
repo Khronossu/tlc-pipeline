@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType
 
@@ -34,9 +34,16 @@ def tokenize(value: str | None, salt: str) -> str | None:
     return hashlib.sha256((value + salt).encode()).hexdigest()
 
 
-def _make_tokenize_udf(salt: str) -> "pyspark.sql.functions.UserDefinedFunction":  # type: ignore[name-defined]  # noqa: F821
+def _make_tokenize_udf(salt: str) -> object:
+    # Inline hashlib import so the UDF closure is self-contained on Spark executors.
+    # Referencing module-level imports would pull in pydantic_settings, which is not
+    # available in the executor Python environment.
     def _tokenize(value: str | None) -> str | None:
-        return tokenize(value, salt)
+        import hashlib
+
+        if value is None:
+            return None
+        return hashlib.sha256((value + salt).encode()).hexdigest()
 
     return F.udf(_tokenize, StringType())
 

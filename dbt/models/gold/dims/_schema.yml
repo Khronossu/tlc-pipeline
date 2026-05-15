@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: dim_payment_type
+    description: "Static payment type lookup. Grain: one row per payment_type_id (0–4)."
+    columns:
+      - name: payment_type_id
+        description: "Payment type code."
+        tests:
+          - not_null
+          - unique
+      - name: payment_type_desc
+        description: "Human-readable payment type description."
+        tests:
+          - not_null
+
+  - name: dim_rate_code
+    description: "Static rate code lookup. Grain: one row per rate_code_id."
+    columns:
+      - name: rate_code_id
+        description: "Rate code identifier."
+        tests:
+          - not_null
+          - unique
+      - name: rate_code_desc
+        description: "Rate code description."
+        tests:
+          - not_null
+
+  - name: dim_vendor
+    description: "Static TPEP vendor lookup. Grain: one row per vendor_id."
+    columns:
+      - name: vendor_id
+        description: "Vendor identifier (1 or 2)."
+        tests:
+          - not_null
+          - unique
+      - name: vendor_name
+        description: "Full vendor name."
+        tests:
+          - not_null
+
+snapshots:
+  - name: dim_taxi_zone_snapshot
+    description: >
+      SCD Type 2 snapshot of TLC taxi zones. Tracks changes to borough, zone_name,
+      and service_zone. dbt_scd_id is the surrogate key. valid_to IS NULL for the
+      current version of each zone. Re-running against an unchanged source produces
+      no new rows (idempotent).
+    columns:
+      - name: location_id
+        description: "TLC zone identifier (1–265). Natural key."
+        tests:
+          - not_null
+      - name: dbt_scd_id
+        description: "dbt-generated surrogate key for this SCD2 row."
+        tests:
+          - not_null
+          - unique
+      - name: dbt_valid_from
+        description: "Effective start of this zone version."
+        tests:
+          - not_null
+      - name: dbt_valid_to
+        description: "Effective end of this zone version. NULL = current record."
+      - name: dbt_is_deleted
+        description: "True if this zone was hard-deleted from the source."

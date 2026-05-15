@@ -1,5 +1,7 @@
 """Tests for pure transform functions in landing_to_bronze (no Iceberg, no MinIO)."""
 
+from datetime import datetime
+
 import pytest
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
@@ -54,8 +56,8 @@ RAW_SCHEMA = StructType(
 def _make_raw_row(spark: SparkSession, overrides: dict = {}) -> "pyspark.sql.DataFrame":  # type: ignore[name-defined]  # noqa: F821
     defaults = {
         "VendorID": 2,
-        "tpep_pickup_datetime": "2023-01-15 08:00:00",
-        "tpep_dropoff_datetime": "2023-01-15 08:20:00",
+        "tpep_pickup_datetime": datetime(2023, 1, 15, 8, 0, 0),
+        "tpep_dropoff_datetime": datetime(2023, 1, 15, 8, 20, 0),
         "passenger_count": 1.0,
         "trip_distance": 2.5,
         "RatecodeID": 1.0,

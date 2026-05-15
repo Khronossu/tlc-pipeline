@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -95,9 +95,15 @@ def cast_source_schema(df: DataFrame) -> DataFrame:
         .withColumn("mta_tax", F.col("mta_tax").cast(DecimalType(10, 2)))
         .withColumn("tip_amount", F.col("tip_amount").cast(DecimalType(10, 2)))
         .withColumn("tolls_amount", F.col("tolls_amount").cast(DecimalType(10, 2)))
-        .withColumn("improvement_surcharge", F.col("improvement_surcharge").cast(DecimalType(10, 2)))
+        .withColumn(
+            "improvement_surcharge",
+            F.col("improvement_surcharge").cast(DecimalType(10, 2)),
+        )
         .withColumn("total_amount", F.col("total_amount").cast(DecimalType(10, 2)))
-        .withColumn("congestion_surcharge", F.col("congestion_surcharge").cast(DecimalType(10, 2)))
+        .withColumn(
+            "congestion_surcharge",
+            F.col("congestion_surcharge").cast(DecimalType(10, 2)),
+        )
         .withColumn("airport_fee", F.col("airport_fee").cast(DecimalType(10, 2)))
     )
 
@@ -110,7 +116,7 @@ def add_ingestion_metadata(
     schema_version: int,
 ) -> DataFrame:
     """Append ingestion metadata columns. Pure function."""
-    ingested_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    ingested_at = datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
     return (
         df.withColumn("_run_id", F.lit(run_id))
         .withColumn("_source_url", F.lit(source_url))

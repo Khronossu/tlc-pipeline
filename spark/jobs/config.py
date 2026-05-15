@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     minio_root_user: str = "minioadmin"
     minio_root_password: str = "minioadmin"
     iceberg_rest_url: str = "http://iceberg-rest:8181"
-    iceberg_warehouse: str = "s3a://warehouse/"
-    spark_master: str = "spark://spark-master:7077"
+    iceberg_warehouse: str = "s3://warehouse/"
+    spark_master: str = "local[*]"
     pii_salt: str = "change-me"
     pii_salt_version: int = 1
 

@@ -6,14 +6,14 @@ from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOpe
 
 from shared.callbacks import on_failure
 
-SPARK_CONN_ID = "spark_default"
+SPARK_MASTER = "local[*]"
 SPARK_JOBS_PATH = "/opt/spark/jobs"
 
 
 def make_download_task(year: str, month: str) -> SparkSubmitOperator:
     return SparkSubmitOperator(
         task_id="download_to_landing",
-        conn_id=SPARK_CONN_ID,
+        master=SPARK_MASTER,
         application=f"{SPARK_JOBS_PATH}/download_to_landing.py",
         application_args=["--year", year, "--month", month],
         on_failure_callback=on_failure,
@@ -28,7 +28,7 @@ def make_landing_to_bronze_task(
 ) -> SparkSubmitOperator:
     return SparkSubmitOperator(
         task_id="landing_to_bronze",
-        conn_id=SPARK_CONN_ID,
+        master=SPARK_MASTER,
         application=f"{SPARK_JOBS_PATH}/landing_to_bronze.py",
         application_args=[
             "--year",

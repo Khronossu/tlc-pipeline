@@ -24,7 +24,7 @@ def _iter_months(start: str, end: str) -> Generator[tuple[int, int], None, None]
 
 def _spark_submit(script: str, *args: str) -> str:
     joined = " ".join(f'"{a}"' for a in args)
-    return f"spark-submit {SPARK_JOBS_PATH}/{script} {joined}"
+    return f"spark-submit --master local[*] {SPARK_JOBS_PATH}/{script} {joined}"
 
 
 @task

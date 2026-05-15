@@ -7,14 +7,14 @@ import json
 from airflow.decorators import task
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 
-SPARK_CONN_ID = "spark_default"
+SPARK_MASTER = "local[*]"
 SPARK_JOBS_PATH = "/opt/spark/jobs"
 
 
 def make_quarantine_task(year: str, month: str, run_id: str) -> SparkSubmitOperator:
     return SparkSubmitOperator(
         task_id="write_to_quarantine",
-        conn_id=SPARK_CONN_ID,
+        master=SPARK_MASTER,
         application=f"{SPARK_JOBS_PATH}/quarantine_writer.py",
         application_args=[
             "--year",
@@ -60,6 +60,7 @@ def write_audit_success(**context: object) -> None:
     subprocess.run(
         [
             "spark-submit",
+            "--master", "local[*]",
             f"{SPARK_JOBS_PATH}/write_audit.py",
             "--record-json",
             json.dumps(record),
@@ -98,6 +99,7 @@ def write_audit_quarantined(**context: object) -> None:
     subprocess.run(
         [
             "spark-submit",
+            "--master", "local[*]",
             f"{SPARK_JOBS_PATH}/write_audit.py",
             "--record-json",
             json.dumps(record),

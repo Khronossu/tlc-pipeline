@@ -39,7 +39,7 @@ def _write_audit(
         "triggered_by": "scheduled",
     }
     subprocess.run(
-        ["spark-submit", f"{SPARK_JOBS_PATH}/write_audit.py", "--record-json", json.dumps(record)],
+        ["spark-submit", "--master", "local[*]", f"{SPARK_JOBS_PATH}/write_audit.py", "--record-json", json.dumps(record)],
         check=False,
     )
 
@@ -52,7 +52,7 @@ def rewrite_data_files(**context: object) -> dict[str, object]:
     for table in MANAGED_TABLES:
         try:
             proc = subprocess.run(
-                ["spark-submit", f"{SPARK_JOBS_PATH}/iceberg_maintenance.py", "--tables", table],
+                ["spark-submit", "--master", "local[*]", f"{SPARK_JOBS_PATH}/iceberg_maintenance.py", "--tables", table],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -82,6 +82,7 @@ def expire_snapshots(**context: object) -> None:
             subprocess.run(
                 [
                     "spark-submit",
+                    "--master", "local[*]",
                     "--conf", f"spark.tlc.maintenance.table={table}",
                     f"{SPARK_JOBS_PATH}/iceberg_maintenance.py",
                     "--tables", table,
@@ -109,7 +110,7 @@ def remove_orphan_files(**context: object) -> None:
     for table in MANAGED_TABLES:
         try:
             subprocess.run(
-                ["spark-submit", f"{SPARK_JOBS_PATH}/iceberg_maintenance.py", "--tables", table],
+                ["spark-submit", "--master", "local[*]", f"{SPARK_JOBS_PATH}/iceberg_maintenance.py", "--tables", table],
                 check=True,
             )
         except subprocess.CalledProcessError as exc:

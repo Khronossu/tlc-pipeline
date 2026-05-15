@@ -1,54 +1,26 @@
-"""Monthly ingestion DAG: Landing → Bronze → Audit."""
+"""Monthly ingestion DAG: Landing → Bronze → PII Lookup → Tokenize → GE gate → Audit."""
 
 from __future__ import annotations
 
-import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
-from airflow.decorators import dag, task
+from airflow.decorators import dag
 from airflow.models.param import Param
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-
-SPARK_CONN_ID = "spark_default"
-SPARK_JOBS_PATH = "/opt/spark/jobs"
+from ingest.tasks_audit import (
+    alert_slack,
+    make_quarantine_task,
+    write_audit_quarantined,
+    write_audit_success,
+)
+from ingest.tasks_ingest import make_download_task, make_landing_to_bronze_task
+from ingest.tasks_pii import make_generate_pii_task, make_tokenize_task
+from ingest.tasks_quality import make_branch_task, make_ge_gate_task
 
 DEFAULT_ARGS = {
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
     "retry_exponential_backoff": False,
 }
-
-
-def _on_failure(context: dict) -> None:  # type: ignore[type-arg]
-    """Write a FAILED audit row when a task exhausts all retries."""
-    import subprocess
-
-    run_id = context["run_id"]
-    dag_id = context["dag"].dag_id
-    task_id = context["task"].task_id
-    now = datetime.now(tz=UTC).isoformat()
-
-    record = {
-        "run_id": run_id,
-        "dag_id": dag_id,
-        "task_id": task_id,
-        "layer": "bronze",
-        "status": "FAILED",
-        "started_at": now,
-        "finished_at": now,
-        "duration_sec": 0.0,
-        "error_message": str(context.get("exception", ""))[:500],
-        "triggered_by": "scheduled",
-    }
-    subprocess.run(
-        [
-            "spark-submit",
-            f"{SPARK_JOBS_PATH}/write_audit.py",
-            "--record-json",
-            json.dumps(record),
-        ],
-        check=False,
-    )
 
 
 @dag(
@@ -69,78 +41,22 @@ def yellow_taxi_monthly_ingest() -> None:
     month = "{{ params.month }}"
     run_id = "{{ run_id }}"
     source_url = (
-        f"https://d37ci6vzurychx.cloudfront.net/trip-data/"
+        "https://d37ci6vzurychx.cloudfront.net/trip-data/"
         f"yellow_tripdata_{year}-{month:>02}.parquet"
     )
 
-    download = SparkSubmitOperator(
-        task_id="download_to_landing",
-        conn_id=SPARK_CONN_ID,
-        application=f"{SPARK_JOBS_PATH}/download_to_landing.py",
-        application_args=["--year", year, "--month", month],
-        on_failure_callback=_on_failure,
-    )
+    download = make_download_task(year, month)
+    to_bronze = make_landing_to_bronze_task(year, month, run_id, source_url)
+    gen_pii = make_generate_pii_task(year, month)
+    tokenize = make_tokenize_task(year, month)
+    ge_gate = make_ge_gate_task()
+    branch = make_branch_task()
+    quarantine = make_quarantine_task(year, month, run_id)
 
-    to_bronze = SparkSubmitOperator(
-        task_id="landing_to_bronze",
-        conn_id=SPARK_CONN_ID,
-        application=f"{SPARK_JOBS_PATH}/landing_to_bronze.py",
-        application_args=[
-            "--year",
-            year,
-            "--month",
-            month,
-            "--run-id",
-            run_id,
-            "--source-url",
-            source_url,
-            "--source-sha256",
-            "{{ ti.xcom_pull(task_ids='download_to_landing', key='sha256') or '' }}",
-        ],
-        on_failure_callback=_on_failure,
-    )
-
-    @task(on_failure_callback=_on_failure)
-    def write_audit_success(**context: object) -> None:
-        import subprocess
-        from datetime import UTC, datetime
-
-        ti = context["ti"]  # type: ignore[index]
-        now_iso = datetime.now(tz=UTC).isoformat()
-        started = ti.start_date.isoformat() if ti.start_date else now_iso
-        finished = datetime.now(tz=UTC).isoformat()
-        started_dt = datetime.fromisoformat(started)
-        finished_dt = datetime.fromisoformat(finished)
-        duration = (finished_dt - started_dt).total_seconds()
-
-        record = {
-            "run_id": context["run_id"],
-            "dag_id": context["dag"].dag_id,
-            "task_id": "write_audit_success",
-            "layer": "bronze",
-            "table_name": "bronze.yellow_trips",
-            "source_url": (
-                str(context["params"].get("year", ""))  # type: ignore[index]
-                + "-"
-                + str(context["params"].get("month", ""))  # type: ignore[index]
-            ),
-            "status": "SUCCESS",
-            "started_at": started,
-            "finished_at": finished,
-            "duration_sec": duration,
-            "triggered_by": "scheduled",
-        }
-        subprocess.run(
-            [
-                "spark-submit",
-                f"{SPARK_JOBS_PATH}/write_audit.py",
-                "--record-json",
-                json.dumps(record),
-            ],
-            check=True,
-        )
-
-    download >> to_bronze >> write_audit_success()
+    # Bug #4 fix: gen_pii reads from Bronze, so Bronze must be written first
+    download >> to_bronze >> gen_pii >> tokenize >> ge_gate >> branch
+    branch >> write_audit_success()
+    branch >> quarantine >> write_audit_quarantined() >> alert_slack()
 
 
 yellow_taxi_monthly_ingest()

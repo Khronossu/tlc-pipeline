@@ -1,0 +1,44 @@
+name: tlc_pipeline
+version: "1.0.0"
+config-version: 2
+
+profile: tlc_pipeline
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+snapshot-paths: ["snapshots"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  year: 2023
+  month: 1
+
+models:
+  tlc_pipeline:
+    silver:
+      +schema: silver
+      +materialized: incremental
+      +file_format: iceberg
+      +incremental_strategy: insert_overwrite
+    gold:
+      dims:
+        +schema: gold
+        +materialized: table
+        +file_format: iceberg
+      marts:
+        +schema: gold
+        +materialized: table
+        +file_format: iceberg
+    serving:
+      +schema: serving
+      +materialized: view
+
+seeds:
+  tlc_pipeline:
+    +schema: meta
+
+snapshots:
+  tlc_pipeline:
+    +target_schema: gold

@@ -1,0 +1,46 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: iceberg
+    schema: bronze
+    tables:
+      - name: yellow_trips
+        description: "Bronze Yellow Taxi trips — tokenized PII, ingestion metadata, monthly Iceberg partition."
+        columns:
+          - name: VendorID
+            description: "1 = Creative Mobile Technologies, 2 = VeriFone Inc."
+          - name: tpep_pickup_datetime
+            description: "Trip start timestamp. Partition key."
+          - name: tpep_dropoff_datetime
+            description: "Trip end timestamp."
+          - name: passenger_count
+            description: "Self-reported passenger count (0–9). Null-able."
+          - name: trip_distance
+            description: "Miles, meter-reported."
+          - name: RatecodeID
+            description: "Rate code (1=Standard, 2=JFK, 3=Newark, 4=Nassau, 5=Negotiated, 6=Group, 99=Unknown)."
+          - name: PULocationID
+            description: "TLC taxi zone ID at pickup (1–265)."
+          - name: DOLocationID
+            description: "TLC taxi zone ID at drop-off (1–265)."
+          - name: payment_type
+            description: "0=Voided, 1=Credit, 2=Cash, 3=No charge, 4=Dispute."
+          - name: fare_amount
+            description: "Metered fare in USD."
+          - name: total_amount
+            description: "Total charged in USD (fare + surcharges + tip)."
+          - name: passenger_email_token
+            description: "64-char SHA-256+salt token of fabricated passenger email."
+          - name: passenger_phone_token
+            description: "64-char SHA-256+salt token of fabricated passenger phone."
+          - name: payment_card_last4_token
+            description: "64-char SHA-256+salt token of fabricated card last-4."
+          - name: passenger_id_token
+            description: "64-char SHA-256+salt token of fabricated passenger ID."
+          - name: _salt_version
+            description: "Salt version used for tokenization. Increment triggers re-tokenization."
+          - name: _ingested_at
+            description: "Timestamp when this row was written to Bronze."
+          - name: _source_url
+            description: "CloudFront URL of the source parquet file."

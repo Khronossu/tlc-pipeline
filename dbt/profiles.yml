@@ -1,0 +1,12 @@
+tlc_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: spark
+      method: thrift
+      host: "{{ env_var('SPARK_THRIFT_HOST', 'spark-thrift') }}"
+      port: 10000
+      schema: silver
+      threads: 2
+      connect_retries: 5
+      connect_timeout: 60

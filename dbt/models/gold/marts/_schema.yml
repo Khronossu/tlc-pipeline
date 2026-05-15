@@ -1,0 +1,121 @@
+version: 2
+
+models:
+  - name: fct_trips
+    description: >
+      Grain: one row per trip (vendor_id + pickup_at). The primary Gold fact.
+      Joins Silver trips with no aggregation — preserves full row-level detail.
+      tip_pct is computed here (tip_amount / fare_amount × 100). Carries _ingested_at
+      from Bronze and stamps _transformed_at so end-to-end latency is queryable.
+    columns:
+      - name: trip_id
+        description: "Surrogate key: MD5(vendor_id || pickup_at)."
+        tests:
+          - not_null
+          - unique
+      - name: vendor_id
+        description: "FK → dim_vendor.vendor_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_vendor')
+              field: vendor_id
+      - name: payment_type
+        description: "FK → dim_payment_type.payment_type_id."
+        tests:
+          - relationships:
+              to: ref('dim_payment_type')
+              field: payment_type_id
+      - name: rate_code_id
+        description: "FK → dim_rate_code.rate_code_id."
+        tests:
+          - relationships:
+              to: ref('dim_rate_code')
+              field: rate_code_id
+      - name: pu_location_id
+        description: "TLC pickup zone ID (1–265)."
+        tests:
+          - not_null
+      - name: do_location_id
+        description: "TLC drop-off zone ID (1–265)."
+        tests:
+          - not_null
+      - name: tip_pct
+        description: "Tip as percentage of fare_amount. NULL when fare_amount = 0."
+      - name: duration_min
+        description: "Trip duration in minutes (dropoff_at − pickup_at)."
+      - name: _ingested_at
+        description: "Landing→Bronze write timestamp. Carried forward from Bronze."
+        tests:
+          - not_null
+      - name: _transformed_at
+        description: "Silver→Gold write timestamp."
+        tests:
+          - not_null
+
+  - name: fct_trips_daily
+    description: >
+      Grain: one row per (pickup_date, pu_location_id, payment_type).
+      Pre-aggregated daily summary for fast dashboard queries. Derived from fct_trips.
+    columns:
+      - name: daily_id
+        description: "Surrogate key: MD5(pickup_date || pu_location_id || payment_type)."
+        tests:
+          - not_null
+          - unique
+      - name: pickup_date
+        description: "Calendar date of pickup."
+        tests:
+          - not_null
+      - name: trip_count
+        description: "Number of trips in this cell."
+        tests:
+          - not_null
+      - name: total_revenue
+        description: "Sum of total_amount for all trips in this cell."
+
+  - name: fct_zone_revenue_monthly
+    description: >
+      Grain: one row per (pickup_month, pu_location_id). Monthly revenue and trip
+      volume per pickup zone. Zone attributes joined from dim_taxi_zone_snapshot
+      at the current SCD2 record (dbt_valid_to IS NULL).
+    columns:
+      - name: zone_month_id
+        description: "Surrogate key: MD5(pickup_month || pu_location_id)."
+        tests:
+          - not_null
+          - unique
+      - name: pickup_month
+        description: "First day of the aggregation month. Partition key."
+        tests:
+          - not_null
+      - name: pu_location_id
+        description: "TLC zone ID of pickup location."
+        tests:
+          - not_null
+      - name: trip_count
+        description: "Total trips originating in this zone-month."
+        tests:
+          - not_null
+      - name: total_revenue
+        description: "Sum of total_amount for the zone-month."
+
+  - name: fct_tokenization_audit
+    description: >
+      Grain: one row per (pickup_month, salt_version). Governance fact tracking
+      PDPA tokenization coverage. token_coverage_rate = 1.0 means all trips in
+      that month have a non-null passenger_email_token.
+    columns:
+      - name: audit_id
+        description: "Surrogate key: MD5(pickup_month || salt_version)."
+        tests:
+          - not_null
+          - unique
+      - name: salt_version
+        description: "Salt version used for tokenization."
+        tests:
+          - not_null
+      - name: token_coverage_rate
+        description: "Fraction of trips with non-null passenger_email_token (0.0–1.0)."
+      - name: distinct_passengers
+        description: "Count of distinct passenger_id_token values in the month."

@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: stg_yellow_trips
+    description: >
+      Silver staging of NYC Yellow Taxi trips. Renamed columns to snake_case,
+      congestion_surcharge and airport_fee coalesced to 0 for pre-2019/2021 partitions
+      (schema evolution: columns absent in older years are null at Bronze).
+      One row per trip. Carries _ingested_at from Bronze and stamps _transformed_at here
+      so Bronze→Silver latency is queryable per row.
+    columns:
+      - name: vendor_id
+        description: "1 = Creative Mobile Technologies, 2 = VeriFone Inc."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2]
+      - name: pickup_at
+        description: "Trip start timestamp."
+        tests:
+          - not_null
+      - name: dropoff_at
+        description: "Trip end timestamp. Always after pickup_at."
+        tests:
+          - not_null
+      - name: pickup_month
+        description: "First day of the pickup month. Partition key."
+        tests:
+          - not_null
+      - name: pu_location_id
+        description: "TLC taxi zone ID at pickup (1–265)."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 265
+      - name: do_location_id
+        description: "TLC taxi zone ID at drop-off (1–265)."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 265
+      - name: payment_type
+        description: "0=Voided, 1=Credit, 2=Cash, 3=No charge, 4=Dispute."
+        tests:
+          - accepted_values:
+              values: [0, 1, 2, 3, 4]
+      - name: fare_amount
+        description: "Metered fare in USD."
+      - name: total_amount
+        description: "Total charged (fare + surcharges + tip)."
+      - name: congestion_surcharge
+        description: "Congestion surcharge. Added 2019-02-01; coalesced to 0 for earlier trips."
+        tests:
+          - not_null
+      - name: airport_fee
+        description: "Airport fee. Added 2021-01-01; coalesced to 0 for earlier trips."
+        tests:
+          - not_null
+      - name: passenger_email_token
+        description: "64-char SHA-256+salt token of fabricated passenger email."
+      - name: passenger_id_token
+        description: "64-char SHA-256+salt token of fabricated passenger ID."
+      - name: _ingested_at
+        description: "Timestamp when this row was written to Bronze."
+        tests:
+          - not_null
+      - name: _transformed_at
+        description: "Timestamp when this row was written to Silver. Subtract _ingested_at for Bronze→Silver latency."
+        tests:
+          - not_null
+
+  - name: stg_taxi_zone
+    description: "TLC taxi zone lookup. 265 zones across 5 NYC boroughs. Source: seeded CSV from TLC."
+    columns:
+      - name: location_id
+        description: "TLC zone identifier (1–265). Primary key."
+        tests:
+          - not_null
+          - unique
+      - name: borough
+        description: "NYC borough name."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island", "EWR"]
+      - name: zone_name
+        description: "Human-readable zone name."
+        tests:
+          - not_null
+      - name: service_zone
+        description: "Service tier (Yellow Zone, Boro Zone, Airports, EWR)."
+        tests:
+          - not_null

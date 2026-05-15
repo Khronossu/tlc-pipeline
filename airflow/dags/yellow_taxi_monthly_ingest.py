@@ -1,4 +1,4 @@
-"""Monthly ingestion DAG: Landing → Bronze → PII Lookup → Tokenize → GE gate → Audit."""
+"""Monthly ingestion DAG: Landing → Bronze → PII Tokenize → GE Bronze → Silver → Gold → GE Gold."""
 
 from __future__ import annotations
 
@@ -11,6 +11,13 @@ from ingest.tasks_audit import (
     make_quarantine_task,
     write_audit_quarantined,
     write_audit_success,
+)
+from ingest.tasks_dbt import (
+    make_dbt_gold_run,
+    make_dbt_gold_test,
+    make_dbt_silver_run,
+    make_dbt_silver_test,
+    make_ge_gold_gate,
 )
 from ingest.tasks_ingest import make_download_task, make_landing_to_bronze_task
 from ingest.tasks_pii import make_generate_pii_task, make_tokenize_task
@@ -45,17 +52,31 @@ def yellow_taxi_monthly_ingest() -> None:
         f"yellow_tripdata_{year}-{month:>02}.parquet"
     )
 
+    # ── Bronze ingest ────────────────────────────────────────────────────────
     download = make_download_task(year, month)
     to_bronze = make_landing_to_bronze_task(year, month, run_id, source_url)
     gen_pii = make_generate_pii_task(year, month)
     tokenize = make_tokenize_task(year, month)
-    ge_gate = make_ge_gate_task()
+    ge_bronze = make_ge_gate_task()
     branch = make_branch_task()
     quarantine = make_quarantine_task(year, month, run_id)
 
-    # Bug #4 fix: gen_pii reads from Bronze, so Bronze must be written first
-    download >> to_bronze >> gen_pii >> tokenize >> ge_gate >> branch
-    branch >> write_audit_success()
+    # ── Silver / Gold pipeline (success path only) ───────────────────────────
+    dbt_silver_run = make_dbt_silver_run(year, month)
+    dbt_silver_test = make_dbt_silver_test(year, month)
+    dbt_gold_run = make_dbt_gold_run(year, month)
+    dbt_gold_test = make_dbt_gold_test(year, month)
+    ge_gold = make_ge_gold_gate()
+
+    # ── Task graph ───────────────────────────────────────────────────────────
+    download >> to_bronze >> gen_pii >> tokenize >> ge_bronze >> branch
+
+    # Success path: audit → Silver → Gold → GE Gold
+    audit_ok = write_audit_success()
+    branch >> audit_ok >> dbt_silver_run >> dbt_silver_test
+    dbt_silver_test >> dbt_gold_run >> dbt_gold_test >> ge_gold
+
+    # Failure path: quarantine → audit → alert
     branch >> quarantine >> write_audit_quarantined() >> alert_slack()
 
 

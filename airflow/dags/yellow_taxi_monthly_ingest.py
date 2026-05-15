@@ -6,22 +6,22 @@ from datetime import datetime, timedelta
 
 from airflow.decorators import dag
 from airflow.models.param import Param
-from ingest.tasks_audit import (
+from shared.tasks_audit import (
     alert_slack,
     make_quarantine_task,
     write_audit_quarantined,
     write_audit_success,
 )
-from ingest.tasks_dbt import (
+from shared.tasks_dbt import (
     make_dbt_gold_run,
     make_dbt_gold_test,
     make_dbt_silver_run,
     make_dbt_silver_test,
     make_ge_gold_gate,
 )
-from ingest.tasks_ingest import make_download_task, make_landing_to_bronze_task
-from ingest.tasks_pii import make_generate_pii_task, make_tokenize_task
-from ingest.tasks_quality import make_branch_task, make_ge_gate_task
+from shared.tasks_ingest import make_download_task, make_landing_to_bronze_task
+from shared.tasks_pii import make_generate_pii_task, make_tokenize_task
+from shared.tasks_quality import make_branch_task, make_ge_gate_task
 
 DEFAULT_ARGS = {
     "retries": 2,

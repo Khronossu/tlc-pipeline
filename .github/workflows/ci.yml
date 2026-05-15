@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" 2>/dev/null || pip install \
+            pyspark==3.5.1 \
+            ruff \
+            mypy \
+            pytest \
+            pydantic-settings \
+            prometheus-client
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Unit tests
+        run: pytest tests/ -v --tb=short
+
+  dbt-parse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt-spark
+        run: pip install dbt-spark==1.8.0 dbt-core==1.8.0
+
+      - name: dbt parse (validate model graph)
+        working-directory: dbt
+        run: dbt parse --profiles-dir . --project-dir .
+        env:
+          DBT_PROFILES_DIR: .
+
+  ge-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Great Expectations
+        run: pip install great-expectations==0.18.19
+
+      - name: Validate GE config and list checkpoints
+        working-directory: great_expectations
+        run: |
+          great_expectations --version
+          python -c "
+          import json, pathlib, sys
+          suites = list(pathlib.Path('expectations').glob('*.json'))
+          errors = []
+          for s in suites:
+              try:
+                  data = json.loads(s.read_text())
+                  assert 'expectations' in data, f'Missing expectations key in {s}'
+                  assert len(data['expectations']) > 0, f'Empty suite: {s}'
+              except Exception as e:
+                  errors.append(str(e))
+          if errors:
+              print('GE suite errors:', errors, file=sys.stderr)
+              sys.exit(1)
+          print(f'Validated {len(suites)} expectation suites: {[s.name for s in suites]}')
+          "

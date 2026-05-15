@@ -5,7 +5,7 @@ from __future__ import annotations
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import BranchPythonOperator
 
-from ingest.callbacks import on_failure
+from shared.callbacks import on_failure
 
 GE_PATH = "/opt/airflow/great_expectations"
 

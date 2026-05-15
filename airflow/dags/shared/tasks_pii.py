@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 
-from ingest.callbacks import on_failure
+from shared.callbacks import on_failure
 
 SPARK_CONN_ID = "spark_default"
 SPARK_JOBS_PATH = "/opt/spark/jobs"

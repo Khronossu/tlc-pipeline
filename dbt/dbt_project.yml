@@ -38,10 +38,7 @@ models:
 seeds:
   tlc_pipeline:
     +schema: meta
-    +file_format: iceberg
 
 snapshots:
   tlc_pipeline:
-    +schema: gold
-    +file_format: iceberg
     +target_schema: gold

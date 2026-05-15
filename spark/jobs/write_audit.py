@@ -1,9 +1,10 @@
-"""Writes a single audit row to ops.pipeline_audit (Iceberg)."""
+"""Writes a single audit row to ops.pipeline_audit (Iceberg) and pushes metrics to Pushgateway."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from dataclasses import dataclass, field
 
 from pyspark.sql import SparkSession
@@ -102,6 +103,39 @@ def write_audit_row(record: AuditRecord, spark: SparkSession) -> None:
     """)
 
 
+def push_metrics(record: AuditRecord) -> None:
+    """Push pipeline run metrics to Prometheus Pushgateway (best-effort; never raises)."""
+    pushgateway_url = os.getenv("PUSHGATEWAY_URL", "http://pushgateway:9091")
+    try:
+        from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+
+        registry = CollectorRegistry()
+        labels = {"dag_id": record.dag_id, "task_id": record.task_id, "layer": record.layer}
+
+        Gauge("pipeline_run_duration_seconds", "Pipeline task duration", labels.keys(),
+              registry=registry).labels(**labels).set(record.duration_sec)
+        Gauge("pipeline_rows_written", "Rows written in this task run", labels.keys(),
+              registry=registry).labels(**labels).set(record.rows_out)
+        Gauge("pipeline_rows_quarantined", "Rows quarantined in this task run", labels.keys(),
+              registry=registry).labels(**labels).set(record.rows_quarantined)
+        Gauge("pipeline_ge_pass_rate", "GE pass rate (0–1)", labels.keys(),
+              registry=registry).labels(**labels).set(record.ge_pass_rate)
+        Gauge("pipeline_run_status", "1=SUCCESS 0=FAILED -1=QUARANTINED", labels.keys(),
+              registry=registry).labels(**labels).set(
+            1 if record.status == "SUCCESS" else (-1 if record.status == "QUARANTINED" else 0)
+        )
+        # Epoch timestamp of last successful finish per table — used for freshness panels
+        if record.table_name:
+            from datetime import UTC, datetime
+            ts = datetime.now(tz=UTC).timestamp()
+            Gauge("pipeline_last_finished_ts", "Unix timestamp of last finish", ["table_name"],
+                  registry=registry).labels(table_name=record.table_name).set(ts)
+
+        push_to_gateway(pushgateway_url, job=record.dag_id, registry=registry)
+    except Exception:  # noqa: BLE001
+        pass  # metrics are best-effort — never block the audit write
+
+
 def run(record_json: str, settings: Settings) -> None:
     from spark.jobs.landing_to_bronze import build_spark_session
 
@@ -110,6 +144,7 @@ def run(record_json: str, settings: Settings) -> None:
     data = json.loads(record_json)
     record = AuditRecord(**data)
     write_audit_row(record, spark)
+    push_metrics(record)
     spark.stop()
 
 

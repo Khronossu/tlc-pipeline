@@ -26,9 +26,8 @@ SELECT
     AVG(t.tip_pct)                      AS avg_tip_pct,
     current_timestamp()                 AS _transformed_at
 FROM {{ ref("fct_trips") }} t
-LEFT JOIN {{ ref("dim_taxi_zone_snapshot") }} z
+LEFT JOIN {{ ref("dim_taxi_zone") }} z
     ON t.pu_location_id = z.location_id
-    AND z.dbt_valid_to IS NULL  -- current SCD2 record only
 {% if is_incremental() %}
 WHERE t.pickup_month = DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1))::date
 {% endif %}

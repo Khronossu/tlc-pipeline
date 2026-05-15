@@ -1,0 +1,204 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.4.2" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": { "list": [] },
+  "description": "TLC Yellow Taxi Pipeline — operational overview",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "fillOpacity": 70, "lineWidth": 0 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0 },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "options": { "-1": { "text": "QUARANTINED" }, "0": { "text": "FAILED" }, "1": { "text": "SUCCESS" } }, "type": "value" }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "fillGradient": 0,
+        "yAxis": { "min": -1, "max": 1 }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "pipeline_run_status{dag_id=\"yellow_taxi_monthly_ingest\"}",
+          "legendFormat": "{{dag_id}} / {{task_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "1 — Pipeline Status Timeline (1=SUCCESS, 0=FAILED, -1=QUARANTINED)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 2,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "pipeline_run_duration_seconds{dag_id=\"yellow_taxi_monthly_ingest\"}",
+          "legendFormat": "{{task_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "2 — Ingestion Duration Trend (last 12 runs)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "fillOpacity": 30 },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "pipeline_rows_written{layer=\"bronze\"}",
+          "legendFormat": "{{dag_id}} rows written",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "pipeline_rows_quarantined{layer=\"bronze\"}",
+          "legendFormat": "{{dag_id}} rows quarantined",
+          "refId": "B"
+        }
+      ],
+      "title": "3 — Rows Ingested per Run (Bronze)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 4,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "pipeline_ge_pass_rate",
+          "legendFormat": "{{dag_id}} / {{task_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "4 — GE Pass Rate by Suite (last 30 days)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 172800 },
+              { "color": "red", "value": 604800 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 5,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "time() - pipeline_last_finished_ts",
+          "legendFormat": "{{table_name}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "5 — Freshness Lag per Table (seconds since last successful write)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "id": 6,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "minio_bucket_usage_total_bytes{bucket=\"warehouse\"}",
+          "legendFormat": "warehouse total bytes",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "minio_bucket_usage_total_bytes{bucket=\"landing\"}",
+          "legendFormat": "landing total bytes",
+          "refId": "B"
+        }
+      ],
+      "title": "6 — File Size Distribution — MinIO Bucket Usage (Bronze = warehouse)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["tlc", "pipeline", "observability"],
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TLC Pipeline Overview",
+  "uid": "tlc-pipeline-overview",
+  "version": 1
+}

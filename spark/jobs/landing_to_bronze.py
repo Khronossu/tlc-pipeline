@@ -53,9 +53,7 @@ def build_spark_session(settings: Settings) -> SparkSession:
         .config("spark.sql.catalog.iceberg.type", "rest")
         .config("spark.sql.catalog.iceberg.uri", settings.iceberg_rest_url)
         .config("spark.sql.catalog.iceberg.warehouse", settings.iceberg_warehouse)
-        .config(
-            "spark.sql.catalog.iceberg.io-impl", "org.apache.iceberg.aws.s3.S3FileIO"
-        )
+        .config("spark.sql.catalog.iceberg.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
         .config("spark.sql.catalog.iceberg.s3.endpoint", settings.minio_endpoint)
         .config("spark.sql.catalog.iceberg.s3.path-style-access", "true")
         .config(
@@ -66,9 +64,7 @@ def build_spark_session(settings: Settings) -> SparkSession:
         .config("spark.hadoop.fs.s3a.access.key", settings.minio_root_user)
         .config("spark.hadoop.fs.s3a.secret.key", settings.minio_root_password)
         .config("spark.hadoop.fs.s3a.path.style.access", "true")
-        .config(
-            "spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem"
-        )
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         .getOrCreate()
     )
 
@@ -142,9 +138,7 @@ def run(year: int, month: int, run_id: str, source_url: str, source_sha256: str)
     spark = build_spark_session(settings)
     ensure_bronze_table(spark)
 
-    landing_path = (
-        f"s3a://landing/yellow_taxi/year={year}/month={month:02d}/data.parquet"
-    )
+    landing_path = f"s3a://landing/yellow_taxi/year={year}/month={month:02d}/data.parquet"
     df = spark.read.parquet(landing_path)
     df = cast_source_schema(df)
     df = add_ingestion_metadata(df, run_id, source_url, source_sha256, schema_version=1)

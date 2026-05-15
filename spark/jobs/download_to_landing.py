@@ -12,8 +12,7 @@ from pathlib import Path
 import boto3
 import requests
 
-from spark.jobs.config import Settings
-
+from spark.jobs.config import Settings  # noqa: E402
 
 TLC_URL_TEMPLATE = (
     "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_{year}-{month:02d}.parquet"

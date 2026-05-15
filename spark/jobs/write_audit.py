@@ -71,9 +71,7 @@ def ensure_audit_table(spark: SparkSession) -> None:
 def write_audit_row(record: AuditRecord, spark: SparkSession) -> None:
     """Insert one audit row. Append-only — never overwrites."""
     failed_exp_literal = (
-        "array("
-        + ", ".join(f"'{e}'" for e in record.ge_failed_expectations)
-        + ")"
+        "array(" + ", ".join(f"'{e}'" for e in record.ge_failed_expectations) + ")"
         if record.ge_failed_expectations
         else "cast(array() as array<string>)"
     )

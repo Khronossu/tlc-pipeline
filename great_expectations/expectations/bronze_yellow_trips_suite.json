@@ -1,0 +1,151 @@
+{
+  "expectation_suite_name": "bronze_yellow_trips_suite",
+  "data_asset_type": null,
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 500000,
+        "max_value": 12000000
+      },
+      "meta": {
+        "notes": "Wide bootstrap bound. 2023-01 anchor = 3,066,766. 2021-01 low = 1,369,769 (pandemic). Tighten to rolling mean ±2σ once 14 months of history exist."
+      }
+    },
+    {
+      "expectation_type": "expect_column_mean_to_be_between",
+      "kwargs": {
+        "column": "fare_amount",
+        "min_value": 10,
+        "max_value": 30
+      },
+      "meta": {
+        "notes": "2023-01 p50 fare = $12.80. Bounds allow seasonal drift."
+      }
+    },
+    {
+      "expectation_type": "expect_column_mean_to_be_between",
+      "kwargs": {
+        "column": "trip_distance",
+        "min_value": 1,
+        "max_value": 8
+      },
+      "meta": {
+        "notes": "2023-01 p50 distance = 1.80 mi. Upper bound allows airport-heavy months."
+      }
+    },
+    {
+      "expectation_type": "expect_column_quantile_values_to_be_between",
+      "kwargs": {
+        "column": "trip_distance",
+        "quantile_ranges": {
+          "quantiles": [0.99],
+          "value_ranges": [[15, 30]]
+        }
+      },
+      "meta": {
+        "notes": "2023-01 p99 = 20.06 mi. Upper bound 30 guards against 258,928-mile sensor errors."
+      }
+    },
+    {
+      "expectation_type": "expect_column_quantile_values_to_be_between",
+      "kwargs": {
+        "column": "fare_amount",
+        "quantile_ranges": {
+          "quantiles": [0.99],
+          "value_ranges": [[50, 150]]
+        }
+      },
+      "meta": {
+        "notes": "2023-01 p99 fare = $72.30."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "passenger_count",
+        "min_value": 0,
+        "max_value": 9,
+        "mostly": 0.99
+      },
+      "meta": {
+        "notes": "TLC vehicle capacity cap. mostly=0.99 allows for rare sensor errors."
+      }
+    },
+    {
+      "expectation_type": "expect_column_pair_values_A_to_be_greater_than_B",
+      "kwargs": {
+        "column_A": "tpep_dropoff_datetime",
+        "column_B": "tpep_pickup_datetime",
+        "or_equal": false,
+        "mostly": 0.9999
+      },
+      "meta": {
+        "notes": "Dropoff must be after pickup. 2023-01 had 3 negative-duration rows."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "PULocationID",
+        "min_value": 1,
+        "max_value": 265
+      },
+      "meta": {
+        "notes": "TLC taxi zone lookup range 1-265, confirmed in recon."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "DOLocationID",
+        "min_value": 1,
+        "max_value": 265
+      },
+      "meta": {
+        "notes": "TLC taxi zone lookup range 1-265, confirmed in recon."
+      }
+    },
+    {
+      "expectation_type": "expect_column_value_lengths_to_equal",
+      "kwargs": {
+        "column": "passenger_email_token",
+        "value": 64,
+        "mostly": 0.999
+      },
+      "meta": {
+        "notes": "Tripwire: SHA-256 hex is always 64 chars. Failure means tokenize_pii.py regressed."
+      }
+    },
+    {
+      "expectation_type": "expect_column_value_lengths_to_equal",
+      "kwargs": {
+        "column": "passenger_id_token",
+        "value": 64,
+        "mostly": 0.999
+      },
+      "meta": {
+        "notes": "Same tripwire as passenger_email_token."
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "payment_type",
+        "value_set": [0, 1, 2, 3, 4]
+      },
+      "meta": {
+        "notes": "0=Unknown (undocumented but observed), 1=Credit, 2=Cash, 3=No charge, 4=Dispute."
+      }
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "0.18.x",
+    "citations": [
+      {
+        "citation_date": "2026-05-15",
+        "comment": "Bootstrapped from empirical recon of yellow_tripdata_2023-01.parquet. See docs/data_dictionary.md."
+      }
+    ]
+  }
+}

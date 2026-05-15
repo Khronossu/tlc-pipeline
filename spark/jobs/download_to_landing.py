@@ -6,7 +6,7 @@ import hashlib
 import json
 import tempfile
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import boto3
@@ -80,7 +80,7 @@ def download_month(year: int, month: int, settings: Settings) -> ManifestRecord:
                     byte_size += len(chunk)
 
         row_count = _count_parquet_rows(local_path)
-        ingested_at = datetime.now(tz=timezone.utc).isoformat()
+        ingested_at = datetime.now(tz=UTC).isoformat()
 
         # Upload parquet
         s3.upload_file(str(local_path), "landing", parquet_key)

@@ -12,7 +12,7 @@ init:
 	@echo "MinIO ready."
 	docker compose run --rm minio-init
 	@echo "Creating Iceberg namespaces..."
-	docker compose exec spark-master /opt/bitnami/spark/bin/spark-sql \
+	docker compose exec spark-master /opt/spark/bin/spark-sql \
 		--conf spark.sql.catalog.iceberg=org.apache.iceberg.spark.SparkCatalog \
 		--conf spark.sql.catalog.iceberg.type=rest \
 		--conf spark.sql.catalog.iceberg.uri=http://iceberg-rest:8181 \

@@ -64,29 +64,32 @@ services:
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
 
   spark-master:
-    image: bitnami/spark:3.5.1
+    image: apache/spark:3.5.5-scala2.12-java17-python3-ubuntu
+    command: /opt/spark/sbin/start-master.sh
+    user: root
     environment:
-      SPARK_MODE: master
-      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_MASTER_HOST: spark-master
     ports:
       - "7077:7077"
       - "8080:8080"
     volumes:
       - ./spark/jobs:/opt/spark/jobs
-      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+      - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
 
   spark-worker:
-    image: bitnami/spark:3.5.1
+    image: apache/spark:3.5.5-scala2.12-java17-python3-ubuntu
+    command: /opt/spark/sbin/start-worker.sh spark://spark-master:7077
+    user: root
     environment:
-      SPARK_MODE: worker
-      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_NO_DAEMONIZE: "true"
       SPARK_WORKER_MEMORY: 2G
       SPARK_WORKER_CORES: "2"
     depends_on:
       - spark-master
     volumes:
       - ./spark/jobs:/opt/spark/jobs
-      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+      - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
 
   # ── Airflow ─────────────────────────────────────────────────────────────────
   postgres:
@@ -105,11 +108,7 @@ services:
 
   airflow-init:
     <<: *airflow-common
-    command: >
-      bash -c "airflow db migrate && airflow users create
-        --username admin --password admin
-        --firstname Admin --lastname User
-        --role Admin --email admin@example.com"
+    command: bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"
     restart: "no"
 
   airflow-webserver:

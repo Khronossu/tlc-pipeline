@@ -160,7 +160,9 @@ def yellow_taxi_monthly_ingest() -> None:
         now_iso = datetime.now(tz=UTC).isoformat()
         started = ti.start_date.isoformat() if ti.start_date else now_iso
         finished = datetime.now(tz=UTC).isoformat()
-        duration = (datetime.fromisoformat(finished) - datetime.fromisoformat(started)).total_seconds()
+        duration = (
+            datetime.fromisoformat(finished) - datetime.fromisoformat(started)
+        ).total_seconds()
 
         record = {
             "run_id": context["run_id"],
@@ -177,7 +179,12 @@ def yellow_taxi_monthly_ingest() -> None:
             "triggered_by": "scheduled",
         }
         subprocess.run(
-            ["spark-submit", f"{SPARK_JOBS_PATH}/write_audit.py", "--record-json", json.dumps(record)],
+            [
+                "spark-submit",
+                f"{SPARK_JOBS_PATH}/write_audit.py",
+                "--record-json",
+                json.dumps(record),
+            ],
             check=True,
         )
 
@@ -187,10 +194,14 @@ def yellow_taxi_monthly_ingest() -> None:
         conn_id=SPARK_CONN_ID,
         application=f"{SPARK_JOBS_PATH}/quarantine_writer.py",
         application_args=[
-            "--year", year,
-            "--month", month,
-            "--failure-reason", "ge_bronze_gate_failed",
-            "--run-id", run_id,
+            "--year",
+            year,
+            "--month",
+            month,
+            "--failure-reason",
+            "ge_bronze_gate_failed",
+            "--run-id",
+            run_id,
         ],
         trigger_rule="none_failed_min_one_success",
     )
@@ -216,7 +227,12 @@ def yellow_taxi_monthly_ingest() -> None:
             "triggered_by": "scheduled",
         }
         subprocess.run(
-            ["spark-submit", f"{SPARK_JOBS_PATH}/write_audit.py", "--record-json", json.dumps(record)],
+            [
+                "spark-submit",
+                f"{SPARK_JOBS_PATH}/write_audit.py",
+                "--record-json",
+                json.dumps(record),
+            ],
             check=True,
         )
 

@@ -15,7 +15,6 @@ from pyspark.sql.types import (
 
 from spark.jobs.tokenize_pii import TOKEN_COLUMNS, tokenize, tokenize_bronze_partition
 
-
 # ── Pure function tests (no Spark) ───────────────────────────────────────────
 
 

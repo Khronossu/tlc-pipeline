@@ -55,7 +55,7 @@ def _fake_passenger_id(seed: str) -> str:
     return hashlib.md5(("pid" + seed).encode()).hexdigest()  # noqa: S324
 
 
-def _make_seed_udf() -> "pyspark.sql.functions.UserDefinedFunction":  # type: ignore[name-defined]  # noqa: F821
+def _make_seed_udf() -> pyspark.sql.functions.UserDefinedFunction:  # type: ignore[name-defined]  # noqa: F821
     """UDF: seed string from VendorID + pickup timestamp string."""
 
     def _seed(vendor_id: int | None, pickup: str | None) -> str:
@@ -85,7 +85,10 @@ def generate_fake_pii(df: DataFrame, spark: SparkSession) -> DataFrame:
     return (
         df.select("VendorID", "tpep_pickup_datetime")
         .distinct()
-        .withColumn("_seed", seed_udf(F.col("VendorID"), F.col("tpep_pickup_datetime").cast(StringType())))
+        .withColumn(
+            "_seed",
+            seed_udf(F.col("VendorID"), F.col("tpep_pickup_datetime").cast(StringType())),
+        )
         .withColumn("passenger_email", email_udf(F.col("_seed")))
         .withColumn("passenger_phone", phone_udf(F.col("_seed")))
         .withColumn("payment_card_last4", card_udf(F.col("_seed")))

@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: v_trips_summary
+    description: >
+      Serving view: daily trip metrics pre-joined with zone, vendor, and payment type dims.
+      Intended for dashboard consumption (Superset / notebook). Not aggregated further —
+      callers can GROUP BY any dimension at query time.
+
+  - name: v_zone_revenue
+    description: >
+      Serving view: monthly revenue metrics per pickup zone with zone attributes included.
+      Thin projection of fct_zone_revenue_monthly for dashboards.

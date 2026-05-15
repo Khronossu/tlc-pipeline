@@ -40,6 +40,56 @@ models:
         tests:
           - not_null
 
+  - name: dim_taxi_zone
+    description: >
+      Grain: one row per active TLC zone (265 rows). Thin view over the current SCD2
+      record from dim_taxi_zone_snapshot (dbt_valid_to IS NULL). Callers join on
+      location_id; zone_sk is the dbt surrogate key for downstream FK tests.
+    columns:
+      - name: location_id
+        description: "TLC zone identifier (1–265). Natural key."
+        tests:
+          - not_null
+          - unique
+      - name: zone_sk
+        description: "dbt surrogate key (dbt_scd_id from the snapshot)."
+        tests:
+          - not_null
+          - unique
+      - name: zone_name
+        description: "TLC zone name."
+        tests:
+          - not_null
+      - name: borough
+        description: "NYC borough."
+        tests:
+          - not_null
+
+  - name: dim_date
+    description: >
+      Grain: one row per calendar date, 2018-01-01 through 2026-12-31. Generated
+      entirely in SQL via SEQUENCE — no source table. Covers the full TLC demo
+      range (2018 backfill) plus two future years. SCD0 — static, never changes.
+    columns:
+      - name: date_day
+        description: "Calendar date. Primary key."
+        tests:
+          - not_null
+          - unique
+      - name: date_key
+        description: "Integer surrogate key (yyyyMMdd) for FK joins."
+        tests:
+          - not_null
+          - unique
+      - name: year
+        description: "Calendar year."
+        tests:
+          - not_null
+      - name: is_weekend
+        description: "True if Saturday or Sunday."
+        tests:
+          - not_null
+
 snapshots:
   - name: dim_taxi_zone_snapshot
     description: >

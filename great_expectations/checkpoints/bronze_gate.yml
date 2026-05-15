@@ -1,0 +1,26 @@
+name: bronze_gate
+config_version: 1.0
+class_name: Checkpoint
+module_name: great_expectations.checkpoint
+
+template_name: null
+run_name_template: "bronze-gate-%Y%m%d-%H%M%S"
+expectation_suite_name: bronze_yellow_trips_suite
+
+batch_request: {}
+
+action_list:
+  - name: store_validation_result
+    action:
+      class_name: StoreValidationResultAction
+
+  - name: update_data_docs
+    action:
+      class_name: UpdateDataDocsAction
+      site_names:
+        - local_site
+
+evaluation_parameters: {}
+runtime_configuration: {}
+validations: []
+profilers: []

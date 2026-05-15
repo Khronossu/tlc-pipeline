@@ -1,4 +1,4 @@
-"""Audit write tasks (success + quarantine paths) and Slack alert stub."""
+"""Audit write tasks (success + quarantine paths) and email alert."""
 
 from __future__ import annotations
 
@@ -106,8 +106,31 @@ def write_audit_quarantined(**context: object) -> None:
     )
 
 
-@task(task_id="alert_slack")
-def alert_slack(**context: object) -> None:
-    """Placeholder — wire to real Slack webhook in production."""
+@task(task_id="alert_email")
+def alert_email(**context: object) -> None:
+    """Send email alert when GE Bronze gate fails and rows are quarantined."""
+    import smtplib
+    from email.message import EmailMessage
+
     run_id = context["run_id"]
-    print(f"[ALERT] GE Bronze gate failed for run {run_id}. Rows quarantined.")
+    dag_id = context["dag"].dag_id
+
+    msg = EmailMessage()
+    msg["Subject"] = f"[TLC Pipeline] GE Bronze gate FAILED — {dag_id}"
+    msg["From"] = "noreply@tlc-pipeline.local"
+    msg["To"] = "purinboonpetch@gmail.com"
+    msg.set_content(
+        f"GE Bronze quality gate failed.\n\n"
+        f"DAG:    {dag_id}\n"
+        f"Run ID: {run_id}\n\n"
+        f"Affected rows have been quarantined. "
+        f"Check the Airflow UI and Grafana for details.\n"
+        f"Audit log: iceberg.ops.audit_log"
+    )
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as smtp:
+            smtp.starttls()
+            smtp.sendmail(msg["From"], [msg["To"]], msg.as_string())
+    except Exception as exc:  # noqa: BLE001
+        # Log but don't fail the DAG — alert is best-effort
+        print(f"[ALERT] Email send failed ({exc}). Run {run_id} quarantined.")

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from airflow.decorators import dag
 from airflow.models.param import Param
 from shared.tasks_audit import (
-    alert_slack,
+    alert_email,
     make_quarantine_task,
     write_audit_quarantined,
     write_audit_success,
@@ -77,7 +77,7 @@ def yellow_taxi_monthly_ingest() -> None:
     dbt_silver_test >> dbt_gold_run >> dbt_gold_test >> ge_gold
 
     # Failure path: quarantine → audit → alert
-    branch >> quarantine >> write_audit_quarantined() >> alert_slack()
+    branch >> quarantine >> write_audit_quarantined() >> alert_email()
 
 
 yellow_taxi_monthly_ingest()

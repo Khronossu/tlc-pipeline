@@ -1,7 +1,7 @@
 version: "3.9"
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.9.3-python3.11
+  build: ./airflow
   env_file: .env
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -9,11 +9,18 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
     AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-    _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-apache-spark==4.8.0"
+    SPARK_CONF_DIR: /opt/spark/conf
+    JAVA_HOME: /usr/lib/jvm/java-17-openjdk-arm64
+    PYTHONPATH: /opt/project
+    AWS_REGION: us-east-1
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
     - ./spark/jobs:/opt/spark/jobs
+    - ./spark/conf:/opt/spark/conf
+    - ./:/opt/project
     - airflow_logs:/opt/airflow/logs
   depends_on:
     postgres:
@@ -57,40 +64,55 @@ services:
     ports:
       - "8181:8181"
     environment:
-      CATALOG_WAREHOUSE: s3a://warehouse/
+      CATALOG_WAREHOUSE: s3://warehouse/
       CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
       CATALOG_S3_ENDPOINT: http://minio:9000
       CATALOG_S3_ACCESS__KEY__ID: ${MINIO_ROOT_USER}
       CATALOG_S3_SECRET__ACCESS__KEY: ${MINIO_ROOT_PASSWORD}
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
 
   spark-master:
     image: apache/spark:3.5.5-scala2.12-java17-python3-ubuntu
     command: /opt/spark/sbin/start-master.sh
     user: root
+    env_file: .env
     environment:
       SPARK_NO_DAEMONIZE: "true"
       SPARK_MASTER_HOST: spark-master
+      PYTHONPATH: /opt/project
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
     ports:
       - "7077:7077"
       - "8080:8080"
     volumes:
       - ./spark/jobs:/opt/spark/jobs
       - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+      - ./:/opt/project
 
   spark-worker:
     image: apache/spark:3.5.5-scala2.12-java17-python3-ubuntu
     command: /opt/spark/sbin/start-worker.sh spark://spark-master:7077
     user: root
+    env_file: .env
     environment:
       SPARK_NO_DAEMONIZE: "true"
       SPARK_WORKER_MEMORY: 2G
       SPARK_WORKER_CORES: "2"
+      PYTHONPATH: /opt/project
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
     depends_on:
       - spark-master
     volumes:
       - ./spark/jobs:/opt/spark/jobs
       - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+      - ./:/opt/project
 
   # ── Airflow ─────────────────────────────────────────────────────────────────
   postgres:

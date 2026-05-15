@@ -1,4 +1,4 @@
-"""Reads Landing parquet, casts schema, adds metadata, writes Bronze Iceberg table."""
+"""Reads Landing parquet, casts schema, aligns with Bronze Iceberg schema, writes Bronze."""
 
 from __future__ import annotations
 
@@ -7,7 +7,14 @@ from datetime import UTC, datetime
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import DecimalType, IntegerType, StringType, TimestampType
+from pyspark.sql.types import (
+    DataType,
+    DecimalType,
+    IntegerType,
+    LongType,
+    StringType,
+    TimestampType,
+)
 
 from spark.jobs.config import Settings
 
@@ -49,6 +56,23 @@ USING iceberg
 PARTITIONED BY (months(tpep_pickup_datetime))
 """
 
+# Columns that appear only in later TLC years. Cast only when present in source.
+# congestion_surcharge: 2019-02+   airport_fee: 2021-01+
+_OPTIONAL_DECIMAL_COLS = {"congestion_surcharge", "airport_fee"}
+
+
+def _spark_type_to_ddl(dtype: DataType) -> str:
+    """Convert a Spark DataType to its Iceberg DDL type string."""
+    if isinstance(dtype, IntegerType):
+        return "INT"
+    if isinstance(dtype, LongType):
+        return "BIGINT"
+    if isinstance(dtype, DecimalType):
+        return f"DECIMAL({dtype.precision}, {dtype.scale})"
+    if isinstance(dtype, TimestampType):
+        return "TIMESTAMP"
+    return "STRING"
+
 
 def build_spark_session(settings: Settings) -> SparkSession:
     return (
@@ -75,12 +99,13 @@ def build_spark_session(settings: Settings) -> SparkSession:
 
 
 def cast_source_schema(df: DataFrame) -> DataFrame:
-    """Apply exact Bronze types to the raw Landing DataFrame.
+    """Apply Bronze types to the raw Landing DataFrame.
 
-    Pure function — takes a DataFrame, returns a DataFrame.
-    All casts are explicit; no schema inference is relied upon.
+    Pure function. Columns that appeared in later TLC years (congestion_surcharge,
+    airport_fee) are cast only when present in the source — older files omit them.
+    align_schema() will backfill those columns with NULL before writing.
     """
-    return (
+    df = (
         df.withColumn("VendorID", F.col("VendorID").cast(IntegerType()))
         .withColumn("tpep_pickup_datetime", F.col("tpep_pickup_datetime").cast(TimestampType()))
         .withColumn("tpep_dropoff_datetime", F.col("tpep_dropoff_datetime").cast(TimestampType()))
@@ -101,12 +126,46 @@ def cast_source_schema(df: DataFrame) -> DataFrame:
             F.col("improvement_surcharge").cast(DecimalType(10, 2)),
         )
         .withColumn("total_amount", F.col("total_amount").cast(DecimalType(10, 2)))
-        .withColumn(
-            "congestion_surcharge",
-            F.col("congestion_surcharge").cast(DecimalType(10, 2)),
-        )
-        .withColumn("airport_fee", F.col("airport_fee").cast(DecimalType(10, 2)))
     )
+    for col in _OPTIONAL_DECIMAL_COLS:
+        if col in df.columns:
+            df = df.withColumn(col, F.col(col).cast(DecimalType(10, 2)))
+    return df
+
+
+def align_schema(df: DataFrame, table_name: str, spark: SparkSession) -> DataFrame:
+    """Align df with the existing Iceberg table schema — the key schema-evolution step.
+
+    Two cases handled:
+      1. Column in df but not in table  → ALTER TABLE ADD COLUMN (additive evolution).
+         This is idempotent: running again for the same month is a no-op because the
+         column already exists.
+      2. Column in table but not in df  → fill with NULL so writeTo does not fail.
+         Example: loading 2018 data after 2019 data has added congestion_surcharge.
+
+    Metadata columns (_run_id etc.) are excluded from the ALTER TABLE guard because
+    they are always added by add_ingestion_metadata() after this call.
+    """
+    try:
+        table_schema = spark.table(table_name).schema
+    except Exception:
+        return df  # table does not exist yet; ensure_bronze_table() will create it
+
+    table_col_map: dict[str, DataType] = {f.name: f.dataType for f in table_schema.fields}
+    df_col_set = set(df.columns)
+
+    # Case 1: new columns arriving in the source file
+    for field in df.schema.fields:
+        if field.name not in table_col_map:
+            ddl_type = _spark_type_to_ddl(field.dataType)
+            spark.sql(f"ALTER TABLE {table_name} ADD COLUMN {field.name} {ddl_type}")
+
+    # Case 2: existing table columns absent from the source file
+    for col_name, col_type in table_col_map.items():
+        if col_name not in df_col_set:
+            df = df.withColumn(col_name, F.lit(None).cast(col_type))
+
+    return df
 
 
 def add_ingestion_metadata(
@@ -146,6 +205,7 @@ def run(year: int, month: int, run_id: str, source_url: str, source_sha256: str)
     landing_path = f"s3a://landing/yellow_taxi/year={year}/month={month:02d}/data.parquet"
     df = spark.read.parquet(landing_path)
     df = cast_source_schema(df)
+    df = align_schema(df, BRONZE_TABLE, spark)
     df = add_ingestion_metadata(df, run_id, source_url, source_sha256, schema_version=1)
     row_count = write_bronze(df, spark)
     spark.stop()

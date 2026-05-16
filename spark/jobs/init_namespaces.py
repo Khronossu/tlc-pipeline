@@ -5,7 +5,7 @@ from pyspark.sql import SparkSession
 spark = SparkSession.builder.appName("init_namespaces").getOrCreate()
 spark.sparkContext.setLogLevel("WARN")
 
-for ns in ["iceberg.meta", "iceberg.silver", "iceberg.gold"]:
+for ns in ["iceberg.meta", "iceberg.silver", "iceberg.gold", "iceberg.serving"]:
     try:
         spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {ns}")
         print(f"Namespace ready: {ns}", flush=True)

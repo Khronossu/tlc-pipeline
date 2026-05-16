@@ -9,9 +9,14 @@ GE_PATH = "/opt/project/great_expectations"
 DBT_BIN = "/home/airflow/.local/bin/dbt"
 
 
+def _clean_metastore() -> str:
+    """Return shell snippet that removes the stale Derby Hive metastore before each dbt run."""
+    return f"rm -rf {DBT_DIR}/metastore_db"
+
+
 def _dbt_cmd(select: str, cmd: str = "run", extra_vars: str = "") -> str:
     vars_flag = f"--vars '{extra_vars}'" if extra_vars else ""
-    return f"cd {DBT_DIR} && {DBT_BIN} {cmd} --select {select} {vars_flag} --profiles-dir ."
+    return f"{_clean_metastore()} && cd {DBT_DIR} && {DBT_BIN} {cmd} --select {select} {vars_flag} --profiles-dir ."
 
 
 def make_dbt_silver_run(year: str, month: str) -> BashOperator:
@@ -38,7 +43,7 @@ def make_dbt_silver_test(year: str, month: str) -> BashOperator:
 def make_dbt_snapshot() -> BashOperator:
     return BashOperator(
         task_id="dbt_snapshot",
-        bash_command=f"cd {DBT_DIR} && {DBT_BIN} snapshot --profiles-dir .",
+        bash_command=f"{_clean_metastore()} && cd {DBT_DIR} && {DBT_BIN} snapshot --profiles-dir .",
     )
 
 

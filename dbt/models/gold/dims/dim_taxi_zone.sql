@@ -10,7 +10,6 @@ SELECT
     zone_name,
     borough,
     service_zone,
-    dbt_valid_from                AS effective_from,
-    dbt_scd_id                   AS zone_sk
-FROM {{ ref("dim_taxi_zone_snapshot") }}
-WHERE dbt_valid_to IS NULL
+    _transformed_at             AS effective_from,
+    MD5(CAST(location_id AS STRING)) AS zone_sk
+FROM {{ ref("stg_taxi_zone") }}

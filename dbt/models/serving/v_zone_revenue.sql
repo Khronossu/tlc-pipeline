@@ -1,5 +1,8 @@
 {{
-    config(materialized="view")
+    config(
+        materialized="table",
+        file_format="iceberg",
+    )
 }}
 
 -- Monthly zone revenue view: top-line numbers per zone for dashboards.

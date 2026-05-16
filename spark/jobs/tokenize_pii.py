@@ -60,6 +60,11 @@ def tokenize_bronze_partition(
     """
     tok_udf = _make_tokenize_udf(salt)
 
+    # Drop any existing token columns so re-runs don't produce duplicates
+    stale_cols = [c for c in TOKEN_COLUMNS + ["_salt_version"] if c in bronze_df.columns]
+    if stale_cols:
+        bronze_df = bronze_df.drop(*stale_cols)
+
     pii_with_tokens = lookup_df
     for raw_col, token_col in zip(PII_COLUMNS, TOKEN_COLUMNS):
         pii_with_tokens = pii_with_tokens.withColumn(token_col, tok_udf(F.col(raw_col))).drop(
@@ -94,6 +99,7 @@ def run(year: int, month: int, settings: Settings) -> int:
     result_df = tokenize_bronze_partition(
         bronze_df, lookup_df, settings.pii_salt, settings.pii_salt_version
     )
+    spark.conf.set("spark.sql.iceberg.merge-schema", "true")
     result_df.writeTo(BRONZE_TABLE).overwritePartitions()
 
     count = spark.sql(

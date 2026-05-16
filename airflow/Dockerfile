@@ -15,3 +15,21 @@ RUN pip install --no-cache-dir \
     requests>=2.32.0 \
     pyarrow>=16.0.0 \
     prometheus-client>=0.20.0
+RUN pip install --no-cache-dir --no-deps \
+    dbt-core \
+    "dbt-spark[session]" \
+    agate \
+    mashumaro \
+    dbt-adapters \
+    dbt-common \
+    dbt-extractor \
+    dbt-semantic-interfaces \
+    networkx \
+    deepdiff \
+    orderly-set \
+    sqlparams \
+    parsedatetime \
+    pytimeparse \
+    snowplow-tracker \
+    daff \
+    leather

@@ -5,27 +5,20 @@ from __future__ import annotations
 import json
 
 from airflow.decorators import task
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from airflow.operators.bash import BashOperator
 
-SPARK_MASTER = "local[*]"
 SPARK_JOBS_PATH = "/opt/spark/jobs"
+SPARK_CMD = "spark-submit --master local[*]"
 
 
-def make_quarantine_task(year: str, month: str, run_id: str) -> SparkSubmitOperator:
-    return SparkSubmitOperator(
+def make_quarantine_task(year: str, month: str, run_id: str) -> BashOperator:
+    return BashOperator(
         task_id="write_to_quarantine",
-        master=SPARK_MASTER,
-        application=f"{SPARK_JOBS_PATH}/quarantine_writer.py",
-        application_args=[
-            "--year",
-            year,
-            "--month",
-            month,
-            "--failure-reason",
-            "ge_bronze_gate_failed",
-            "--run-id",
-            run_id,
-        ],
+        bash_command=(
+            f"{SPARK_CMD} {SPARK_JOBS_PATH}/quarantine_writer.py"
+            f" --year {year} --month {month}"
+            f" --failure-reason ge_bronze_gate_failed --run-id {run_id}"
+        ),
         # default all_success: only runs when branched here (skipped upstream = skip, not fail)
     )
 

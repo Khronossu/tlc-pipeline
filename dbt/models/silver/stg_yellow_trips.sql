@@ -3,7 +3,7 @@
         materialized="incremental",
         file_format="iceberg",
         incremental_strategy="insert_overwrite",
-        partition_by=[{"field": "pickup_month", "data_type": "date"}],
+        partition_by=["pickup_month"],
     )
 }}
 
@@ -11,7 +11,7 @@ SELECT
     VendorID                                            AS vendor_id,
     tpep_pickup_datetime                                AS pickup_at,
     tpep_dropoff_datetime                               AS dropoff_at,
-    DATE_TRUNC('month', tpep_pickup_datetime)::date     AS pickup_month,
+    CAST(DATE_TRUNC('month', tpep_pickup_datetime) AS DATE) AS pickup_month,
     passenger_count,
     trip_distance,
     RatecodeID                                          AS rate_code_id,

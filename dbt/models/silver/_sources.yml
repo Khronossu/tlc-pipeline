@@ -2,7 +2,6 @@ version: 2
 
 sources:
   - name: bronze
-    database: iceberg
     schema: bronze
     tables:
       - name: yellow_trips

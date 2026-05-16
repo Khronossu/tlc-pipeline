@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from airflow.operators.bash import BashOperator
 
-DBT_DIR = "/opt/airflow/dbt"
-GE_PATH = "/opt/airflow/great_expectations"
+DBT_DIR = "/opt/project/dbt"
+GE_PATH = "/opt/project/great_expectations"
+DBT_BIN = "/home/airflow/.local/bin/dbt"
 
 
 def _dbt_cmd(select: str, cmd: str = "run", extra_vars: str = "") -> str:
     vars_flag = f"--vars '{extra_vars}'" if extra_vars else ""
-    return f"cd {DBT_DIR} && dbt {cmd} --select {select} {vars_flag} --profiles-dir ."
+    return f"cd {DBT_DIR} && {DBT_BIN} {cmd} --select {select} {vars_flag} --profiles-dir ."
 
 
 def make_dbt_silver_run(year: str, month: str) -> BashOperator:
@@ -31,6 +32,13 @@ def make_dbt_silver_test(year: str, month: str) -> BashOperator:
             cmd="test",
             extra_vars=f"{{year: {year}, month: {month}}}",
         ),
+    )
+
+
+def make_dbt_snapshot() -> BashOperator:
+    return BashOperator(
+        task_id="dbt_snapshot",
+        bash_command=f"cd {DBT_DIR} && {DBT_BIN} snapshot --profiles-dir .",
     )
 
 
@@ -55,9 +63,24 @@ def make_dbt_gold_test(year: str, month: str) -> BashOperator:
     )
 
 
+SPARK_JOBS_PATH = "/opt/spark/jobs"
+SPARK_CMD = "spark-submit --master local[*]"
+
+
+def make_dbt_init() -> BashOperator:
+    """Ensure Iceberg namespaces exist and seed data is loaded before dbt runs."""
+    return BashOperator(
+        task_id="dbt_init",
+        bash_command=(
+            f"{SPARK_CMD} {SPARK_JOBS_PATH}/init_namespaces.py"
+            f" && {SPARK_CMD} {SPARK_JOBS_PATH}/seed_taxi_zones.py"
+        ),
+    )
+
+
 def make_ge_gold_gate() -> BashOperator:
     return BashOperator(
         task_id="ge_checkpoint_gold",
-        bash_command=f"cd {GE_PATH} && great_expectations checkpoint run gold_gate; echo $?",
+        bash_command=f"{SPARK_CMD} {SPARK_JOBS_PATH}/run_ge_gold.py",
         do_xcom_push=False,
     )

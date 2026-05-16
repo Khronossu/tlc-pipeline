@@ -21,8 +21,8 @@ SELECT
     DAYOFWEEK(date_day)                              AS day_of_week,   -- 1=Sun … 7=Sat
     DATE_FORMAT(date_day, 'EEEE')                    AS day_name,
     DATE_FORMAT(date_day, 'MMMM')                    AS month_name,
-    DATE_TRUNC('month', date_day)::DATE              AS month_start,
-    DATE_TRUNC('quarter', date_day)::DATE            AS quarter_start,
-    DATE_TRUNC('year', date_day)::DATE               AS year_start,
+    CAST(DATE_TRUNC('month', date_day) AS DATE)      AS month_start,
+    CAST(DATE_TRUNC('quarter', date_day) AS DATE)    AS quarter_start,
+    CAST(DATE_TRUNC('year', date_day) AS DATE)       AS year_start,
     CASE WHEN DAYOFWEEK(date_day) IN (1, 7) THEN TRUE ELSE FALSE END  AS is_weekend
 FROM spine

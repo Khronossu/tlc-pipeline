@@ -3,7 +3,7 @@
         materialized="incremental",
         file_format="iceberg",
         incremental_strategy="insert_overwrite",
-        partition_by=[{"field": "pickup_month", "data_type": "date"}],
+        partition_by=["pickup_month"],
     )
 }}
 
@@ -13,7 +13,7 @@ SELECT
     {{ dbt_utils.generate_surrogate_key(["pickup_date", "pu_location_id", "payment_type"]) }}
                                         AS daily_id,
     pickup_date,
-    DATE_TRUNC('month', pickup_date)::date
+    CAST(DATE_TRUNC('month', pickup_date) AS DATE)
                                         AS pickup_month,
     pu_location_id,
     payment_type,
@@ -41,7 +41,7 @@ FROM (
         duration_min
     FROM {{ ref("fct_trips") }}
     {% if is_incremental() %}
-    WHERE pickup_month = DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1))::date
+    WHERE pickup_month = CAST(DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1)) AS DATE)
     {% endif %}
 ) t
 GROUP BY pickup_date, pickup_month, pu_location_id, payment_type

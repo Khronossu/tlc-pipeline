@@ -16,6 +16,9 @@ build/
 dbt/target/
 dbt/logs/
 dbt/dbt_packages/
+dbt/metastore_db/
+dbt/derby.log
+dbt/.user.yml
 
 # Great Expectations
 great_expectations/uncommitted/

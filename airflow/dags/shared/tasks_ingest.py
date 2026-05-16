@@ -1,21 +1,22 @@
-"""SparkSubmit tasks for the download → Bronze ingest steps."""
+"""BashOperator-based tasks for the download → Bronze ingest steps."""
 
 from __future__ import annotations
 
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from airflow.operators.bash import BashOperator
 
 from shared.callbacks import on_failure
 
-SPARK_MASTER = "local[*]"
 SPARK_JOBS_PATH = "/opt/spark/jobs"
+SPARK_CMD = "spark-submit --master local[*]"
 
 
-def make_download_task(year: str, month: str) -> SparkSubmitOperator:
-    return SparkSubmitOperator(
+def make_download_task(year: str, month: str) -> BashOperator:
+    return BashOperator(
         task_id="download_to_landing",
-        master=SPARK_MASTER,
-        application=f"{SPARK_JOBS_PATH}/download_to_landing.py",
-        application_args=["--year", year, "--month", month],
+        bash_command=(
+            f"{SPARK_CMD} {SPARK_JOBS_PATH}/download_to_landing.py"
+            f" --year {year} --month {month}"
+        ),
         on_failure_callback=on_failure,
     )
 
@@ -25,22 +26,15 @@ def make_landing_to_bronze_task(
     month: str,
     run_id: str,
     source_url: str,
-) -> SparkSubmitOperator:
-    return SparkSubmitOperator(
+) -> BashOperator:
+    return BashOperator(
         task_id="landing_to_bronze",
-        master=SPARK_MASTER,
-        application=f"{SPARK_JOBS_PATH}/landing_to_bronze.py",
-        application_args=[
-            "--year",
-            year,
-            "--month",
-            month,
-            "--run-id",
-            run_id,
-            "--source-url",
-            source_url,
-            "--source-sha256",
-            "{{ ti.xcom_pull(task_ids='download_to_landing', key='sha256') or '' }}",
-        ],
+        bash_command=(
+            f"{SPARK_CMD} {SPARK_JOBS_PATH}/landing_to_bronze.py"
+            f" --year {year} --month {month}"
+            f" --run-id {run_id}"
+            f" --source-url '{source_url}'"
+            " --source-sha256 ''"
+        ),
         on_failure_callback=on_failure,
     )

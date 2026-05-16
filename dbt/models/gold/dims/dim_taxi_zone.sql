@@ -1,6 +1,9 @@
--- Grain: one row per active TLC zone (265 rows). Exposes the current SCD2 record
--- from dim_taxi_zone_snapshot (dbt_valid_to IS NULL = current version).
--- Callers should join on location_id; use dbt_scd_id if they need the surrogate key.
+{{
+    config(
+        materialized="table",
+        file_format="iceberg",
+    )
+}}
 
 SELECT
     location_id,

@@ -3,14 +3,14 @@
         materialized="incremental",
         file_format="iceberg",
         incremental_strategy="insert_overwrite",
-        partition_by=[{"field": "pickup_month", "data_type": "date"}],
+        partition_by=["pickup_month"],
     )
 }}
 
 -- Grain: one row per trip (VendorID + tpep_pickup_datetime from Silver).
 
 SELECT
-    {{ dbt_utils.generate_surrogate_key(["t.vendor_id", "t.pickup_at"]) }}
+    {{ dbt_utils.generate_surrogate_key(["t.vendor_id", "t.pickup_at", "t.dropoff_at", "t.pu_location_id", "t.do_location_id", "t.fare_amount", "t.total_amount", "t.trip_distance", "t.passenger_count"]) }}
                                                 AS trip_id,
     t.vendor_id,
     t.pickup_at,
@@ -52,5 +52,5 @@ SELECT
     current_timestamp()                         AS _transformed_at
 FROM {{ ref("stg_yellow_trips") }} t
 {% if is_incremental() %}
-WHERE t.pickup_month = DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1))::date
+WHERE t.pickup_month = CAST(DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1)) AS DATE)
 {% endif %}

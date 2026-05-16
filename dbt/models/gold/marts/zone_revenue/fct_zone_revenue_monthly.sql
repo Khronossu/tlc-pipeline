@@ -3,7 +3,7 @@
         materialized="incremental",
         file_format="iceberg",
         incremental_strategy="insert_overwrite",
-        partition_by=[{"field": "pickup_month", "data_type": "date"}],
+        partition_by=["pickup_month"],
     )
 }}
 
@@ -29,6 +29,6 @@ FROM {{ ref("fct_trips") }} t
 LEFT JOIN {{ ref("dim_taxi_zone") }} z
     ON t.pu_location_id = z.location_id
 {% if is_incremental() %}
-WHERE t.pickup_month = DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1))::date
+WHERE t.pickup_month = CAST(DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1)) AS DATE)
 {% endif %}
 GROUP BY t.pickup_month, t.pu_location_id, z.borough, z.zone_name, z.service_zone

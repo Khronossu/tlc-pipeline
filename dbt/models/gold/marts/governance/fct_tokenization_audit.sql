@@ -3,7 +3,7 @@
         materialized="incremental",
         file_format="iceberg",
         incremental_strategy="insert_overwrite",
-        partition_by=[{"field": "pickup_month", "data_type": "date"}],
+        partition_by=["pickup_month"],
     )
 }}
 
@@ -22,7 +22,8 @@ SELECT
     COUNT(DISTINCT passenger_id_token)                  AS distinct_passengers,
     current_timestamp()                                 AS _transformed_at
 FROM {{ ref("fct_trips") }}
+WHERE _salt_version IS NOT NULL
 {% if is_incremental() %}
-WHERE pickup_month = DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1))::date
+  AND pickup_month = CAST(DATE_TRUNC('month', MAKE_DATE({{ var("year") }}, {{ var("month") }}, 1)) AS DATE)
 {% endif %}
 GROUP BY pickup_month, _salt_version

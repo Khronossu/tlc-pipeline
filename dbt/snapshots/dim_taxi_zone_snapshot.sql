@@ -3,6 +3,7 @@
 {{
     config(
         target_schema="gold",
+        file_format="iceberg",
         unique_key="location_id",
         strategy="check",
         check_cols=["borough", "zone_name", "service_zone"],

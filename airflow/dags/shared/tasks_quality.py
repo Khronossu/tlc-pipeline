@@ -7,7 +7,8 @@ from airflow.operators.python import BranchPythonOperator
 
 from shared.callbacks import on_failure
 
-GE_PATH = "/opt/airflow/great_expectations"
+SPARK_JOBS_PATH = "/opt/spark/jobs"
+SPARK_CMD = "spark-submit --master local[*]"
 
 
 def _branch_on_ge_result(**context: object) -> str:
@@ -18,15 +19,15 @@ def _branch_on_ge_result(**context: object) -> str:
     return "write_to_quarantine"
 
 
-def make_ge_gate_task() -> BashOperator:
-    # GE CLI does not accept --year/--month; the checkpoint resolves the batch
-    # via the datasource config. The exit code (0 = pass, non-zero = fail) is
-    # captured by the trailing `echo $?` so BashOperator never raises on GE failure.
+def make_ge_gate_task(year: str, month: str) -> BashOperator:
+    # Run bronze quality checks via spark-submit; exit code 0 = pass, 1 = fail.
+    # BashOperator pushes the last stdout line to XCom — we ensure it's the exit code.
     return BashOperator(
         task_id="ge_checkpoint_bronze",
         bash_command=(
-            f"cd {GE_PATH} && "
-            "great_expectations checkpoint run bronze_gate; echo $?"
+            f"{SPARK_CMD} {SPARK_JOBS_PATH}/run_ge_bronze.py"
+            f" --year {year} --month {month}"
+            "; echo $?"
         ),
         do_xcom_push=True,
         on_failure_callback=on_failure,

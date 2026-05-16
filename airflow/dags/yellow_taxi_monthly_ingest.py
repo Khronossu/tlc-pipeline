@@ -15,8 +15,10 @@ from shared.tasks_audit import (
 from shared.tasks_dbt import (
     make_dbt_gold_run,
     make_dbt_gold_test,
+    make_dbt_init,
     make_dbt_silver_run,
     make_dbt_silver_test,
+    make_dbt_snapshot,
     make_ge_gold_gate,
 )
 from shared.tasks_ingest import make_download_task, make_landing_to_bronze_task
@@ -57,13 +59,15 @@ def yellow_taxi_monthly_ingest() -> None:
     to_bronze = make_landing_to_bronze_task(year, month, run_id, source_url)
     gen_pii = make_generate_pii_task(year, month)
     tokenize = make_tokenize_task(year, month)
-    ge_bronze = make_ge_gate_task()
+    ge_bronze = make_ge_gate_task(year, month)
     branch = make_branch_task()
     quarantine = make_quarantine_task(year, month, run_id)
 
     # ── Silver / Gold pipeline (success path only) ───────────────────────────
+    dbt_init = make_dbt_init()
     dbt_silver_run = make_dbt_silver_run(year, month)
     dbt_silver_test = make_dbt_silver_test(year, month)
+    dbt_snapshot = make_dbt_snapshot()
     dbt_gold_run = make_dbt_gold_run(year, month)
     dbt_gold_test = make_dbt_gold_test(year, month)
     ge_gold = make_ge_gold_gate()
@@ -71,10 +75,10 @@ def yellow_taxi_monthly_ingest() -> None:
     # ── Task graph ───────────────────────────────────────────────────────────
     download >> to_bronze >> gen_pii >> tokenize >> ge_bronze >> branch
 
-    # Success path: audit → Silver → Gold → GE Gold
+    # Success path: audit → init → Silver → snapshot → Gold → GE Gold
     audit_ok = write_audit_success()
-    branch >> audit_ok >> dbt_silver_run >> dbt_silver_test
-    dbt_silver_test >> dbt_gold_run >> dbt_gold_test >> ge_gold
+    branch >> audit_ok >> dbt_init >> dbt_silver_run >> dbt_silver_test
+    dbt_silver_test >> dbt_snapshot >> dbt_gold_run >> dbt_gold_test >> ge_gold
 
     # Failure path: quarantine → audit → alert
     branch >> quarantine >> write_audit_quarantined() >> alert_email()
